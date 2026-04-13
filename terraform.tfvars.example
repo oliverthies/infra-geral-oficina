@@ -1,0 +1,13 @@
+aws_region             = "us-east-1"
+project_name           = "oficina"
+db_name                = "oficina"
+db_user                = "oficina"
+db_password            = "sua-senha-segura"
+jwt_secret             = "sua-chave-secreta-jwt-256-bits"
+eks_node_instance_type = "t3.small"
+eks_node_desired       = 1
+eks_node_min           = 1
+eks_node_max           = 2
+
+# Endpoint do RDS (output do repositório infra-database-oficina)
+rds_address = "oficina-postgres.xxxxx.us-east-1.rds.amazonaws.com"

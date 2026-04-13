@@ -1,0 +1,13 @@
+# Terraform
+.terraform/
+*.tfstate.backup
+*.tfstate.lock.info
+.terraform.lock.hcl
+*.tfplan
+tfplan
+
+# Variáveis sensíveis (valores reais vêm dos GitHub Secrets)
+terraform.tfvars
+
+# OS
+.DS_Store
