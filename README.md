@@ -2,6 +2,8 @@
 
 Provisionamento da infraestrutura base na AWS via Terraform para o sistema de gestão de oficina mecânica.
 
+**Deploy completo (todos os módulos Terraform, ordem EKS → RDS → API → Lambda):** [INFRA_DEPLOY.md](./INFRA_DEPLOY.md)
+
 ## Responsabilidade
 
 Este repositório gerencia:
