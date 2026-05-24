@@ -23,7 +23,7 @@ Este repositório gerencia:
 │  ┌─────────────────── VPC (10.0.0.0/16) ──────────────────┐  │
 │  │                                                         │  │
 │  │  ┌─── Public Subnets ───┐   ┌── Private Subnets ──┐    │  │
-│  │  │  EKS Nodes (t3.small)│   │  RDS PostgreSQL      │    │  │
+│  │  │  EKS Nodes (t3.medium)│  │  RDS PostgreSQL      │    │  │
 │  │  │  LoadBalancer (ALB)  │   │  (infra-database)    │    │  │
 │  │  └──────────────────────┘   └──────────────────────┘    │  │
 │  │                                                         │  │
@@ -114,7 +114,7 @@ Após o `terraform apply`, os seguintes valores ficam disponíveis para os outro
 | `private_subnet_ids` | IDs das subnets privadas | infra-database-oficina |
 | `eks_cluster_security_group_id` | SG gerenciado pelo EKS | infra-database-oficina |
 | `eks_nodes_security_group_id` | SG customizado dos nodes | infra-database-oficina |
-| `ecr_repository_url` | URL do ECR | projeto-oficina (CI/CD) |
+| `ecr_repository_url` | URL do ECR | Repositório da API (`oficina-api` / [projeto-oficina](https://github.com/oliverthies/projeto-oficina)) — workflow `push-ecr.yml` |
 | `api_load_balancer_hostname` | URL pública da API | Swagger/Postman |
 | `kubeconfig_command` | Comando para configurar kubectl | Operação |
 
@@ -132,14 +132,18 @@ As variáveis sensíveis são gerenciadas via **GitHub Secrets**:
 | `JWT_SECRET` | Chave secreta JWT |
 | `RDS_ADDRESS` | Endpoint do RDS (output do infra-database) |
 
+> **Imagem da API:** publicada no ECR pelo repositório da API (Actions → *Build and Push API to ECR*), não por build Docker local. Ver [INFRA_DEPLOY.md](./INFRA_DEPLOY.md) passo 5.
+
+**Governança:** PR obrigatório para `main` com `terraform plan` no PR e `apply` após merge; adicione **`soat-architecture`** como colaborador e habilite branch protection (1 approval + checks).
+
 > **Nota:** As credenciais do AWS Learner Lab expiram a cada ~4 horas.
-> Atualize os secrets `AWS_*` antes de executar o pipeline.
+> Atualize os secrets `AWS_*` no GitHub (`oficina-api/scripts/update-github-aws-secrets.ps1`) antes do workflow ECR ou do pipeline Terraform.
 > Em produção, recomenda-se backend remoto (S3 + DynamoDB) para o state.
 
 ## Repositórios relacionados
 
 | Repositório | Descrição |
 |---|---|
-| [projeto-oficina](https://github.com/oliverthies/projeto-oficina) | Aplicação principal (API + K8s manifests) |
+| [projeto-oficina](https://github.com/oliverthies/projeto-oficina) / `oficina-api` | Aplicação principal (API + manifests em `k8s/`) |
 | [infra-database-oficina](https://github.com/oliverthies/infra-database-oficina) | Infraestrutura do banco de dados (RDS) |
 | infra-geral-oficina | Este repositório |
