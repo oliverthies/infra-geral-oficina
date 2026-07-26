@@ -4,6 +4,8 @@ Provisionamento da infraestrutura base na AWS via Terraform para o sistema de ge
 
 **Deploy completo (todos os módulos Terraform, ordem EKS → RDS → API → Lambda):** [INFRA_DEPLOY.md](./INFRA_DEPLOY.md)
 
+**Fase 4 (microsserviços — ECR ×3, DynamoDB, RabbitMQ, namespaces):** [FASE4_INFRA.md](./FASE4_INFRA.md)
+
 ## Responsabilidade
 
 Este repositório gerencia:
@@ -117,6 +119,30 @@ Após o `terraform apply`, os seguintes valores ficam disponíveis para os outro
 | `ecr_repository_url` | URL do ECR | Repositório da API (`oficina-api` / [projeto-oficina](https://github.com/oliverthies/projeto-oficina)) — workflow `push-ecr.yml` |
 | `api_load_balancer_hostname` | URL pública da API | Swagger/Postman |
 | `kubeconfig_command` | Comando para configurar kubectl | Operação |
+
+## State Terraform vs infra no ar (Learner Lab)
+
+Se `terraform state list` estiver vazio ou o plan mostrar troca de `vpc-01a15299...` → `vpc-07f0f2c2...`, o **backup/state antigo não serve** para o cluster atual.
+
+Confirme a VPC do EKS:
+
+```bash
+aws eks describe-cluster --name oficina-eks --region us-east-1 \
+  --query "cluster.resourcesVpcConfig.{vpcId:vpcId,subnets:subnetIds}"
+```
+
+Infra atual (exemplo): `vpc-07f0f2c2ac01c4444`, subnets públicas `subnet-0d3358bc9938109a0`, `subnet-0f0c2ad679f1b36f3`.
+
+**Não dê `apply`** com plan `14 to add, 1 to destroy` nesse cenário.
+
+Com lab ativo:
+
+```powershell
+.\scripts\import-live-infra.ps1 -DiscoverOnly   # lista subnets/IGW
+.\scripts\import-live-infra.ps1                  # import + plan
+```
+
+Provider Kubernetes: `~> 2.35` + `terraform init -upgrade` (evita erro `binary_data_wo` no state).
 
 ## CI/CD
 

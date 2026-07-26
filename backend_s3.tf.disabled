@@ -1,0 +1,10 @@
+# Renomeie para backend_s3.tf.disabled e use state local se o lab bloquear S3.
+terraform {
+  backend "s3" {
+    bucket       = "oficina-terraform-state-376854726751-us-east-1"
+    key          = "infra-geral/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}

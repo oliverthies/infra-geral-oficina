@@ -1,9 +1,7 @@
 # CI/CD — Infraestrutura Geral (VPC, EKS, ECR, K8s Resources)
 #
-# - PR para main  → terraform plan (validação)
-# - Push na main  → terraform apply (provisiona na AWS)
-#
-# O state é armazenado no backend remoto S3 + DynamoDB.
+# AWS Academy: backend S3 costuma ter explicit deny — CI usa state local
+# (backend_s3.tf desabilitado). Commite terraform.tfstate após apply local.
 
 name: Terraform - General Infrastructure
 
@@ -20,7 +18,7 @@ env:
   TF_VAR_rds_address: ${{ secrets.RDS_ADDRESS }}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   plan:
@@ -45,8 +43,13 @@ jobs:
           terraform_version: 1.7.0
           terraform_wrapper: false
 
-      - name: Terraform Init
-        run: terraform init -input=false
+      - name: Terraform Init (state local no CI — Learner Lab)
+        run: |
+          if [ -f backend_s3.tf ]; then
+            mv backend_s3.tf backend_s3.ci-disabled
+          fi
+          rm -rf .terraform
+          terraform init -input=false -reconfigure
 
       - name: Terraform Validate
         run: terraform validate
@@ -78,8 +81,21 @@ jobs:
           terraform_version: 1.7.0
           terraform_wrapper: false
 
-      - name: Terraform Init
-        run: terraform init -input=false
+      - name: Terraform Init (state local no CI — Learner Lab)
+        run: |
+          if [ -f backend_s3.tf ]; then
+            mv backend_s3.tf backend_s3.ci-disabled
+          fi
+          rm -rf .terraform
+          terraform init -input=false -reconfigure
 
       - name: Terraform Apply
         run: terraform apply -auto-approve -input=false
+
+      - name: Commitar state atualizado
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add terraform.tfstate || true
+          git diff --cached --quiet || git commit -m "chore: atualizar terraform state [skip ci]"
+          git push || true

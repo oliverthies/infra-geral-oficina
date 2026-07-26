@@ -16,6 +16,13 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
+# AZs com capacidade para RDS no Learner Lab (evita InvalidVPCNetworkStateFault)
+variable "rds_availability_zones" {
+  description = "AZs das subnets privadas usadas pelo RDS"
+  type        = list(string)
+  default     = ["us-east-1c", "us-east-1d"]
+}
+
 variable "db_name" {
   description = "Nome do banco de dados"
   type        = string
@@ -43,7 +50,7 @@ variable "jwt_secret" {
 variable "eks_node_instance_type" {
   description = "Tipo de instância EC2 para os nodes do EKS"
   type        = string
-  default     = "t3.small"
+  default     = "t3.medium"
 }
 
 variable "eks_node_desired" {
@@ -67,4 +74,20 @@ variable "eks_node_max" {
 variable "rds_address" {
   description = "Hostname do RDS PostgreSQL (output do repositório infra-database)"
   type        = string
+}
+
+# ==================== FASE 4 — Mensageria ====================
+
+variable "rabbitmq_user" {
+  description = "Usuário do RabbitMQ (Saga / eventos entre MS)"
+  type        = string
+  default     = "oficina"
+  sensitive   = true
+}
+
+variable "rabbitmq_password" {
+  description = "Senha do RabbitMQ"
+  type        = string
+  sensitive   = true
+  default     = "oficina-rabbit-2026"
 }

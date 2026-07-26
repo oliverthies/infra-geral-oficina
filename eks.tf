@@ -2,11 +2,11 @@
 # O AWS Academy não permite criar IAM Roles — usamos as roles do Lab.
 
 data "aws_iam_role" "eks_cluster" {
-  name = "c207442a5275926l14626612t1w840515-LabEksClusterRole-xQEAs2DEm3NZ"
+  name = "c220532a5561746l15967798t1w468392-LabEksClusterRole-Cjao7xeLnIaV"
 }
 
 data "aws_iam_role" "eks_nodes" {
-  name = "c207442a5275926l14626612t1w840515967-LabEksNodeRole-mVs9BSOM5RMr"
+  name = "c220532a5561746l15967798t1w468392890-LabEksNodeRole-FxQeXx16husn"
 }
 
 # ==================== EKS CLUSTER ====================

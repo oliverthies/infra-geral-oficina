@@ -57,15 +57,16 @@ Instruções completas: [projeto-oficina/docs/NEW_RELIC.md](https://github.com/o
 Resumo:
 
 1. Defina `$env:NEW_RELIC_LICENSE_KEY` e execute `oficina-api/scripts/install-newrelic.ps1`
-2. Faça build/push da imagem da API (agente Java no Dockerfile)
-3. `kubectl apply -f oficina-api/k8s/api/deployment.yaml`
+2. Publique a imagem da API no ECR via **GitHub Actions** (ver passo 5 e [CD_ECR.md](https://github.com/oliverthies/projeto-oficina/blob/main/docs/CD_ECR.md))
+3. Após a API no ar, gere tráfego (Postman) para o New Relic
 
 ## Pré-requisitos
 
 - AWS CLI configurado.
 - Terraform instalado.
-- Docker instalado, se for fazer build/push local da imagem da API.
 - Credenciais AWS válidas no terminal.
+- **GitHub Actions** no repo [projeto-oficina](https://github.com/oliverthies/projeto-oficina) com secrets AWS (para build/push da imagem no ECR — fluxo padrão).
+- Docker local **opcional** (alternativa ao GitHub Actions).
 - Se estiver usando AWS Academy/Learner Lab, exportar também `AWS_SESSION_TOKEN`.
 
 Valide a autenticação:
@@ -242,26 +243,60 @@ eks_node_max           = 2
 rds_address = "oficina-postgres.xxxxx.us-east-1.rds.amazonaws.com"
 ```
 
-Antes de aplicar, garanta que a imagem da API existe no registry usado pelo deployment.
-
-O Terraform em `infra-geral-oficina/k8s-resources.tf` aponta para o ECR criado pelo módulo:
+Antes do `terraform apply` completo, a imagem **`:latest`** deve existir no ECR. O deployment usa:
 
 ```text
-aws_ecr_repository.api.repository_url:latest
+<ecr_repository_url>:latest
 ```
 
-Faça build e push da imagem para o ECR:
+(output `ecr_repository_url` do passo 3)
+
+### 5.1 Publicar imagem no ECR — GitHub Actions (padrão)
+
+Guia detalhado: [projeto-oficina/docs/CD_ECR.md](https://github.com/oliverthies/projeto-oficina/blob/main/docs/CD_ECR.md)
+
+**Resumo:**
+
+1. Atualize os secrets AWS no GitHub (credenciais do Academy):
+
+```powershell
+$Env:AWS_ACCESS_KEY_ID = "..."
+$Env:AWS_SECRET_ACCESS_KEY = "..."
+$Env:AWS_SESSION_TOKEN = "..."
+
+cd "$ROOT\oficina-api"
+.\scripts\update-github-aws-secrets.ps1
+```
+
+2. GitHub → **Actions** → **Build and Push API to ECR** → **Run workflow** (branch `main`). Aguarde o job ficar verde.
+
+3. Confirme a imagem:
+
+```powershell
+aws ecr describe-images --repository-name oficina-api --region us-east-1 --query "imageDetails[0].imageTags"
+```
+
+4. Se os pods da API já existirem e estiverem em `ImagePullBackOff`:
+
+```powershell
+kubectl rollout restart deployment oficina-api -n oficina
+```
+
+### 5.2 Build local (opcional)
+
+Use apenas se o Docker Desktop estiver ok. Caso contrário, use sempre o passo 5.1.
 
 ```powershell
 cd "$ROOT\oficina-api\oficina-api"
-
-$ECR_URL = "<valor de ecr_repository_url>"
+$ECR_URL = terraform output -raw ecr_repository_url   # em infra-geral-oficina
 
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_URL
 docker build -t oficina-api .
-docker tag oficina-api:latest "$ECR_URL`:latest"
-docker push "$ECR_URL`:latest"
+docker tag oficina-api:latest "${ECR_URL}:latest"
+docker push "${ECR_URL}:latest"
 ```
+
+### 5.3 Apply Kubernetes + API
 
 Depois aplique o restante da infra geral:
 
@@ -356,7 +391,7 @@ terraform output
 1. terraform-backend
 2. infra-geral-oficina parcial: VPC + EKS + ECR
 3. infra-database: RDS PostgreSQL
-4. build/push da imagem da API
+4. GitHub Actions: build/push imagem → ECR (:latest)
 5. infra-geral-oficina completo: Kubernetes + API
 6. lambda-auth-oficina/terraform: Lambda + API Gateway
 ```
@@ -369,7 +404,20 @@ terraform output
 - Se `terraform plan` indicar recriação de VPC, EKS, RDS ou Lambda em ambiente existente, pare e investigue o state antes de aplicar.
 - O `jwt_secret` da API e da Lambda deve ser o mesmo.
 - O RDS fica em subnets privadas; acesso direto da máquina local pode não funcionar.
-- Se estiver usando AWS Academy/Learner Lab, lembre de renovar `AWS_SESSION_TOKEN` quando expirar.
+- Se estiver usando AWS Academy/Learner Lab, lembre de renovar `AWS_SESSION_TOKEN` quando expirar (terminal **e** secrets do GitHub antes do workflow ECR).
+- Pods em `ImagePullBackOff` → imagem ausente no ECR; rode **Build and Push API to ECR** e `kubectl rollout restart deployment/oficina-api -n oficina`.
+- **New Relic:** antes do `terraform apply` da API, crie o Secret `newrelic-secret` no namespace `oficina` (`oficina-api/scripts/create-newrelic-secret.ps1`). O deployment referencia `licenseKey` nesse Secret.
+- RDS `InvalidVPCNetworkStateFault` → subnets RDS em `us-east-1c`/`1d` (`private_rds`); atualize `private_subnet_ids` no `infra-database`.
+- Terraform `Unexpected Identity Change` em `kubernetes_deployment.api` → aplique só subnets com `-target` (abaixo) ou `terraform init -upgrade` com provider Kubernetes `< 2.35`.
+
+### Subnets RDS sem tocar no Deployment K8s
+
+```powershell
+cd infra-geral-oficina
+terraform init -upgrade
+terraform apply -target="aws_subnet.private_rds[0]" -target="aws_subnet.private_rds[1]"
+terraform output private_subnet_ids
+```
 
 ## Destruição da infraestrutura
 
@@ -389,10 +437,10 @@ Para destruir tudo manualmente, siga a ordem inversa:
 cd "$ROOT\lambda-auth-oficina\terraform"
 terraform destroy
 
-cd "$ROOT\infra-geral-oficina"
+cd "$ROOT\infra-database"
 terraform destroy
 
-cd "$ROOT\infra-database"
+cd "$ROOT\infra-geral-oficina"
 terraform destroy
 ```
 

@@ -154,7 +154,17 @@ resource "kubernetes_deployment" "api" {
   }
 
   spec {
-    replicas = 2
+    replicas                  = 1
+    progress_deadline_seconds = 600
+
+    strategy {
+      type = "RollingUpdate"
+
+      rolling_update {
+        max_surge       = "0"
+        max_unavailable = "1"
+      }
+    }
 
     selector {
       match_labels = {
@@ -260,16 +270,47 @@ resource "kubernetes_deployment" "api" {
               }
             }
           }
+          env {
+            name = "NEW_RELIC_LICENSE_KEY"
+            value_from {
+              secret_key_ref {
+                name = "newrelic-secret"
+                key  = "licenseKey"
+              }
+            }
+          }
+          env {
+            name  = "NEW_RELIC_APP_NAME"
+            value = "oficina-api"
+          }
+          env {
+            name  = "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED"
+            value = "true"
+          }
+          env {
+            name  = "NEW_RELIC_LOG_LEVEL"
+            value = "info"
+          }
+
+          startup_probe {
+            http_get {
+              path = "/api/v1/actuator/health/liveness"
+              port = 8080
+            }
+            initial_delay_seconds = 30
+            period_seconds        = 10
+            timeout_seconds       = 5
+            failure_threshold     = 18
+          }
 
           readiness_probe {
             http_get {
               path = "/api/v1/actuator/health/readiness"
               port = 8080
             }
-            initial_delay_seconds = 45
-            period_seconds        = 10
-            timeout_seconds       = 5
-            failure_threshold     = 3
+            period_seconds    = 10
+            timeout_seconds   = 5
+            failure_threshold = 3
           }
 
           liveness_probe {
@@ -277,10 +318,9 @@ resource "kubernetes_deployment" "api" {
               path = "/api/v1/actuator/health/liveness"
               port = 8080
             }
-            initial_delay_seconds = 90
-            period_seconds        = 20
-            timeout_seconds       = 5
-            failure_threshold     = 3
+            period_seconds    = 20
+            timeout_seconds   = 5
+            failure_threshold = 3
           }
 
           resources {
@@ -290,7 +330,7 @@ resource "kubernetes_deployment" "api" {
             }
             limits = {
               cpu    = "1"
-              memory = "768Mi"
+              memory = "1Gi"
             }
           }
         }
@@ -349,8 +389,8 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "api" {
       name        = kubernetes_deployment.api.metadata[0].name
     }
 
-    min_replicas = 2
-    max_replicas = 5
+    min_replicas = 1
+    max_replicas = 3
 
     metric {
       type = "Resource"

@@ -27,8 +27,7 @@ resource "aws_subnet" "public" {
   })
 }
 
-# ==================== SUBNETS PRIVADAS (RDS) ====================
-
+# Subnets privadas legadas (mantidas no state; RDS usa private_rds abaixo)
 resource "aws_subnet" "private" {
   count = 2
 
@@ -38,6 +37,19 @@ resource "aws_subnet" "private" {
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-private-${count.index + 1}"
+  })
+}
+
+# Subnets privadas para RDS em AZs com capacidade (Academy/Learner Lab)
+resource "aws_subnet" "private_rds" {
+  count = length(var.rds_availability_zones)
+
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 12)
+  availability_zone = var.rds_availability_zones[count.index]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-private-rds-${var.rds_availability_zones[count.index]}"
   })
 }
 
